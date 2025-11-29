@@ -23,8 +23,8 @@ database.connect();
 connectRedis(); // Initialize Redis connection
 
 app.use(cors({
-//   origin: "https://studynotionapp21.netlify.app", // allow only Netlify deployed frontend
-	origin: "http://localhost:3000",
+  origin: "https://studynotionapp21.netlify.app", // allow only Netlify deployed frontend
+	// origin: "http://localhost:3000",
   credentials: true, // allow cookies/auth headers if used
 }));
 
