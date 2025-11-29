@@ -1,4 +1,4 @@
-import { toast } from "react-hot-toast"
+import ToastManager from "../../Util/toastManager"
 
 import rzpLogo from "../../Asset/Logo/rzp_logo.png"
 import { resetCart } from "../../Slice/cartSlice"
@@ -35,13 +35,13 @@ export async function BuyCourse(
   navigate,
   dispatch
 ) {
-  const toastId = toast.loading("Loading...")
+  const toastId = ToastManager.showLoading("Processing Payment...")
   try {
     // Loading the script of Razorpay SDK
     const res = await loadScript("https://checkout.razorpay.com/v1/checkout.js")
 
     if (!res) {
-      toast.error(
+      ToastManager.showError(
         "Razorpay SDK failed to load. Check your Internet Connection."
       )
       return
@@ -86,19 +86,19 @@ export async function BuyCourse(
 
     paymentObject.open()
     paymentObject.on("payment.failed", function (response) {
-      toast.error("Oops! Payment Failed.")
+      ToastManager.showError("Oops! Payment Failed.")
       console.log(response.error)
     })
   } catch (error) {
     console.log("PAYMENT API ERROR............", error)
-    toast.error("Could Not make Payment.")
+    ToastManager.showError("Could Not make Payment.")
   }
-  toast.dismiss(toastId)
+  ToastManager.dismissLoading(toastId)
 }
 
 // Verify the Payment
 async function verifyPayment(bodyData, token, navigate, dispatch) {
-  const toastId = toast.loading("Verifying Payment...")
+  const toastId = ToastManager.showLoading("Verifying Payment...")
   dispatch(setPaymentLoading(true))
   try {
     const response = await apiConnector("POST", COURSE_VERIFY_API, bodyData, {
@@ -111,14 +111,14 @@ async function verifyPayment(bodyData, token, navigate, dispatch) {
       throw new Error(response.data.message)
     }
 
-    toast.success("Payment Successful. You are Added to the course ")
+    ToastManager.showSuccess("Payment Successful. You are Added to the course ")
     navigate("/dashboard/enrolled-courses")
     dispatch(resetCart())
   } catch (error) {
     console.log("PAYMENT VERIFY ERROR............", error)
-    toast.error("Could Not Verify Payment.")
+    ToastManager.showError("Could Not Verify Payment.")
   }
-  toast.dismiss(toastId)
+  ToastManager.dismissLoading(toastId)
   dispatch(setPaymentLoading(false))
 }
 

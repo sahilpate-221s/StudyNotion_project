@@ -6,6 +6,7 @@ const User = require("../Model/User");
 const { uploadImageToCloudinary } = require("../Util/ImageUploader");
 const mongoose = require("mongoose");
 const { convertSecondsToDuration } = require("../Util/SecToDuration");
+const cacheService = require("../Util/CacheService");
 
 exports.updateProfile = async (req, res) => {
   try {
@@ -38,6 +39,9 @@ exports.updateProfile = async (req, res) => {
     const updatedUserDetails = await User.findById(id)
       .populate("additionalDetails")
       .exec();
+
+    // Invalidate user cache after profile update
+    await cacheService.invalidateUserCache(id);
 
     return res.json({
       success: true,
@@ -93,9 +97,17 @@ exports.deleteAccount = async (req, res) => {
 exports.getAllUserDetails = async (req, res) => {
   try {
     const id = req.user.id;
-    const userDetails = await User.findById(id)
-      .populate("additionalDetails")
-      .exec();
+    
+    const userDetails = await cacheService.cacheOrExecute(
+      cacheService.generateKey('user', 'profile', id),
+      async () => {
+        return await User.findById(id)
+          .populate("additionalDetails")
+          .exec();
+      },
+      600 // 10 minutes TTL
+    );
+    
     console.log(userDetails);
     res.status(200).json({
       success: true,
@@ -126,6 +138,10 @@ exports.updateDisplayPicture = async (req, res) => {
       { image: image.secure_url },
       { new: true }
     );
+    
+    // Invalidate user cache after image update
+    await cacheService.invalidateUserCache(userId);
+    
     res.send({
       success: true,
       message: `Image Updated successfully`,
@@ -142,62 +158,77 @@ exports.updateDisplayPicture = async (req, res) => {
 exports.getEnrolledCourses = async (req, res) => {
   try {
     const userId = req.user.id;
-    let userDetails = await User.findOne({
-      _id: userId,
-    })
-      .populate({
-        path: "courses",
-        populate: {
-          path: "courseContent",
-          populate: {
-            path: "subSection",
-          },
-        },
-      })
-      .exec();
-    userDetails = userDetails.toObject();
-    var SubsectionLength = 0;
-    for (var i = 0; i < userDetails.courses.length; i++) {
-      let totalDurationInSeconds = 0;
-      SubsectionLength = 0;
-      for (var j = 0; j < userDetails.courses[i].courseContent.length; j++) {
-        totalDurationInSeconds += userDetails.courses[i].courseContent[
-          j
-        ].subSection.reduce(
-          (acc, curr) => acc + parseInt(curr.timeDuration),
-          0
-        );
-        userDetails.courses[i].totalDuration = convertSecondsToDuration(
-          totalDurationInSeconds
-        );
-        SubsectionLength +=
-          userDetails.courses[i].courseContent[j].subSection.length;
-      }
-      let courseProgressCount = await CourseProgress.findOne({
-        courseID: userDetails.courses[i]._id,
-        userId: userId,
-      });
-      courseProgressCount = courseProgressCount?.completedVideos.length;
-      if (SubsectionLength === 0) {
-        userDetails.courses[i].progressPercentage = 100;
-      } else {
-        const multiplier = Math.pow(10, 2);
-        userDetails.courses[i].progressPercentage =
-          Math.round(
-            (courseProgressCount / SubsectionLength) * 100 * multiplier
-          ) / multiplier;
-      }
-    }
+    
+    const result = await cacheService.cacheOrExecute(
+      cacheService.generateKey('user', 'enrolled', userId),
+      async () => {
+        let userDetails = await User.findOne({
+          _id: userId,
+        })
+          .populate({
+            path: "courses",
+            populate: {
+              path: "courseContent",
+              populate: {
+                path: "subSection",
+              },
+            },
+          })
+          .exec();
+        
+        if (!userDetails) {
+          return null;
+        }
+        
+        userDetails = userDetails.toObject();
+        var SubsectionLength = 0;
+        for (var i = 0; i < userDetails.courses.length; i++) {
+          let totalDurationInSeconds = 0;
+          SubsectionLength = 0;
+          for (var j = 0; j < userDetails.courses[i].courseContent.length; j++) {
+            totalDurationInSeconds += userDetails.courses[i].courseContent[
+              j
+            ].subSection.reduce(
+              (acc, curr) => acc + parseInt(curr.timeDuration),
+              0
+            );
+            userDetails.courses[i].totalDuration = convertSecondsToDuration(
+              totalDurationInSeconds
+            );
+            SubsectionLength +=
+              userDetails.courses[i].courseContent[j].subSection.length;
+          }
+          let courseProgressCount = await CourseProgress.findOne({
+            courseID: userDetails.courses[i]._id,
+            userId: userId,
+          });
+          courseProgressCount = courseProgressCount?.completedVideos.length;
+          if (SubsectionLength === 0) {
+            userDetails.courses[i].progressPercentage = 100;
+          } else {
+            const multiplier = Math.pow(10, 2);
+            userDetails.courses[i].progressPercentage =
+              Math.round(
+                (courseProgressCount / SubsectionLength) * 100 * multiplier
+              ) / multiplier;
+          }
+        }
+        
+        return userDetails.courses;
+      },
+      300 // 5 minutes TTL (shorter because progress changes frequently)
+    );
 
-    if (!userDetails) {
+    if (!result) {
       return res.status(400).json({
         success: false,
-        message: `Could not find user with id: ${userDetails}`,
+        message: `Could not find user with id: ${userId}`,
       });
     }
+    
     return res.status(200).json({
       success: true,
-      data: userDetails.courses,
+      data: result,
     });
   } catch (error) {
     return res.status(500).json({
@@ -209,23 +240,28 @@ exports.getEnrolledCourses = async (req, res) => {
 
 exports.instructorDashboard = async (req, res) => {
   try {
-    const courseDetails = await Course.find({ instructor: req.user.id });
+    const courseData = await cacheService.cacheOrExecute(
+      cacheService.generateKey('instructor', 'dashboard', req.user.id),
+      async () => {
+        const courseDetails = await Course.find({ instructor: req.user.id });
 
-    const courseData = courseDetails.map((course) => {
-      const totalStudentsEnrolled = course.studentsEnroled.length;
-      const totalAmountGenerated = totalStudentsEnrolled * course.price;
+        return courseDetails.map((course) => {
+          const totalStudentsEnrolled = course.studentsEnroled.length;
+          const totalAmountGenerated = totalStudentsEnrolled * course.price;
 
-      const courseDataWithStats = {
-        _id: course._id,
-        courseName: course.courseName,
-        courseDescription: course.courseDescription,
+          const courseDataWithStats = {
+            _id: course._id,
+            courseName: course.courseName,
+            courseDescription: course.courseDescription,
+            totalStudentsEnrolled,
+            totalAmountGenerated,
+          };
 
-        totalStudentsEnrolled,
-        totalAmountGenerated,
-      };
-
-      return courseDataWithStats;
-    });
+          return courseDataWithStats;
+        });
+      },
+      600 // 10 minutes TTL
+    );
 
     res.status(200).json({ courses: courseData });
   } catch (error) {

@@ -6,6 +6,7 @@ const courseRoutes = require("./Route/Course");
 const paymentRoutes = require("./Route/Payment");
 const contactUsRoute = require("./Route/Contact");
 const database = require("./Configuration/Database");
+const { connectRedis } = require("./Configuration/Redis");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const { cloudinaryConnect } = require("./Configuration/Cloudinary");
@@ -19,9 +20,11 @@ dotenv.config();
 
 
 database.connect();
+connectRedis(); // Initialize Redis connection
+
 app.use(cors({
-  origin: "https://studynotionapp21.netlify.app", // allow only Netlify deployed frontend
-	// origin: "http://localhost:3000",
+//   origin: "https://studynotionapp21.netlify.app", // allow only Netlify deployed frontend
+	origin: "http://localhost:3000",
   credentials: true, // allow cookies/auth headers if used
 }));
 

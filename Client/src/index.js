@@ -19,7 +19,42 @@ root.render(
     <Provider store={store}>
       <BrowserRouter>
         <App />
-        <Toaster />
+        <Toaster 
+          position="top-right"
+          reverseOrder={false}
+          gutter={8}
+          containerClassName=""
+          containerStyle={{}}
+          toastOptions={{
+            // Define default options
+            className: '',
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            // Default options for specific types
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: '#4ade80',
+                secondary: '#fff',
+              },
+            },
+            error: {
+              duration: 5000,
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#fff',
+              },
+            },
+            loading: {
+              duration: Infinity,
+            },
+          }}
+          // Limit the number of toasts shown at once
+          limit={3}
+        />
       </BrowserRouter>
     </Provider>
   </React.StrictMode>

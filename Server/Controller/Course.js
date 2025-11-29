@@ -6,6 +6,7 @@ const User = require("../Model/User");
 const { uploadImageToCloudinary } = require("../Util/ImageUploader");
 const CourseProgress = require("../Model/CourseProgress");
 const { convertSecondsToDuration } = require("../Util/SecToDuration");
+const cacheService = require("../Util/CacheService");
 
 exports.createCourse = async (req, res) => {
   try {
@@ -102,6 +103,10 @@ exports.createCourse = async (req, res) => {
       { new: true }
     );
 
+    // Invalidate relevant caches after course creation
+    await cacheService.invalidatePattern('course:*');
+    await cacheService.invalidatePattern('category:*');
+
     res.status(200).json({
       success: true,
       data: newCourse,
@@ -149,6 +154,9 @@ exports.editCourse = async (req, res) => {
 
     await course.save();
 
+    // Invalidate course-specific cache
+    await cacheService.invalidateCourseCache(courseId);
+
     const updatedCourse = await Course.findOne({
       _id: courseId,
     })
@@ -185,19 +193,25 @@ exports.editCourse = async (req, res) => {
 
 exports.getAllCourses = async (req, res) => {
   try {
-    const allCourses = await Course.find(
-      { status: "Published" },
-      {
-        courseName: true,
-        price: true,
-        thumbnail: true,
-        instructor: true,
-        ratingAndReviews: true,
-        studentsEnrolled: true,
-      }
-    )
-      .populate("instructor")
-      .exec();
+    const allCourses = await cacheService.cacheOrExecute(
+      cacheService.generateKey('course', 'all'),
+      async () => {
+        return await Course.find(
+          { status: "Published" },
+          {
+            courseName: true,
+            price: true,
+            thumbnail: true,
+            instructor: true,
+            ratingAndReviews: true,
+            studentsEnrolled: true,
+          }
+        )
+          .populate("instructor")
+          .exec();
+      },
+      900 // 15 minutes TTL
+    );
 
     return res.status(200).json({
       success: true,
@@ -216,49 +230,62 @@ exports.getAllCourses = async (req, res) => {
 exports.getCourseDetails = async (req, res) => {
   try {
     const { courseId } = req.body;
-    const courseDetails = await Course.findOne({
-      _id: courseId,
-    })
-      .populate({
-        path: "instructor",
-        populate: {
-          path: "additionalDetails",
-        },
-      })
-      .populate("category")
-      .populate("ratingAndReviews")
-      .populate({
-        path: "courseContent",
-        populate: {
-          path: "subSection",
-          select: "-videoUrl",
-        },
-      })
-      .exec();
+    
+    const result = await cacheService.cacheOrExecute(
+      cacheService.generateKey('course', 'details', courseId),
+      async () => {
+        const courseDetails = await Course.findOne({
+          _id: courseId,
+        })
+          .populate({
+            path: "instructor",
+            populate: {
+              path: "additionalDetails",
+            },
+          })
+          .populate("category")
+          .populate("ratingAndReviews")
+          .populate({
+            path: "courseContent",
+            populate: {
+              path: "subSection",
+              select: "-videoUrl",
+            },
+          })
+          .exec();
 
-    if (!courseDetails) {
+        if (!courseDetails) {
+          return null;
+        }
+
+        let totalDurationInSeconds = 0;
+        courseDetails.courseContent.forEach((content) => {
+          content.subSection.forEach((subSection) => {
+            const timeDurationInSeconds = parseInt(subSection.timeDuration);
+            totalDurationInSeconds += timeDurationInSeconds;
+          });
+        });
+
+        const totalDuration = convertSecondsToDuration(totalDurationInSeconds);
+
+        return {
+          courseDetails,
+          totalDuration,
+        };
+      },
+      1800 // 30 minutes TTL
+    );
+
+    if (!result) {
       return res.status(400).json({
         success: false,
         message: `Could not find course with id: ${courseId}`,
       });
     }
 
-    let totalDurationInSeconds = 0;
-    courseDetails.courseContent.forEach((content) => {
-      content.subSection.forEach((subSection) => {
-        const timeDurationInSeconds = parseInt(subSection.timeDuration);
-        totalDurationInSeconds += timeDurationInSeconds;
-      });
-    });
-
-    const totalDuration = convertSecondsToDuration(totalDurationInSeconds);
-
     return res.status(200).json({
       success: true,
-      data: {
-        courseDetails,
-        totalDuration,
-      },
+      data: result,
     });
   } catch (error) {
     return res.status(500).json({
@@ -336,17 +363,23 @@ exports.getInstructorCourses = async (req, res) => {
   try {
     const instructorId = req.user.id;
 
-    const instructorCourses = await Course.find({
-      instructor: instructorId,
-    })
-      .sort({ createdAt: -1 })
-      .populate({
-        path: "courseContent",
-        populate: {
-          path: "subSection",
-        },
-      })
-      .exec();
+    const instructorCourses = await cacheService.cacheOrExecute(
+      cacheService.generateKey('instructor', 'courses', instructorId),
+      async () => {
+        return await Course.find({
+          instructor: instructorId,
+        })
+          .sort({ createdAt: -1 })
+          .populate({
+            path: "courseContent",
+            populate: {
+              path: "subSection",
+            },
+          })
+          .exec();
+      },
+      600 // 10 minutes TTL
+    );
 
     res.status(200).json({
       success: true,
@@ -392,6 +425,11 @@ exports.deleteCourse = async (req, res) => {
     }
 
     await Course.findByIdAndDelete(courseId);
+
+    // Invalidate relevant caches after course deletion
+    await cacheService.invalidateCourseCache(courseId);
+    await cacheService.invalidatePattern('course:*');
+    await cacheService.invalidatePattern('category:*');
 
     return res.status(200).json({
       success: true,
