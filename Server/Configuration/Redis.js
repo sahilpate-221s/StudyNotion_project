@@ -17,6 +17,7 @@ const connectRedis = async () => {
     console.log("✅ Redis connected successfully");
   } catch (error) {
     console.error("❌ Redis connection failed:", error);
+    process.exit(1); // fail fast in prod
   }
 };
 
