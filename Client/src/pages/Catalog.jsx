@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react"
-import { useSelector } from "react-redux"
+import { useSelector, useDispatch } from "react-redux"
 import { useParams } from "react-router-dom"
+import { setCategories } from "../Slice/categorySlice"
 
 
 
@@ -18,20 +19,66 @@ function Catalog() {
   const [active, setActive] = useState(1)
   const [catalogPageData, setCatalogPageData] = useState(null)
   const [categoryId, setCategoryId] = useState("")
+  const categoriesList = useSelector((state) => state.category.categories)
+  const dispatch = useDispatch()
 
-  useEffect(() => {
-    ; (async () => {
+
+  // useEffect(() => {
+  //   ; (async () => {
+  //     try {
+  //       const res = await apiConnector("GET", categories.CATEGORIES_API)
+  //       const category_id = res?.data?.data?.filter(
+  //         (ct) => ct.name.split(" ").join("-").toLowerCase() === catalogName
+  //       )[0]._id
+  //       setCategoryId(category_id)
+  //     } catch (error) {
+  //       console.log("Could not fetch Categories.", error)
+  //     }
+  //   })()
+  // }, [catalogName])
+
+
+useEffect(() => {
+  const resolveCategory = async () => {
+    let categoriesSource = categoriesList
+
+    // 🔴 Case 1: Redux empty → fetch from API
+    if (!categoriesSource || categoriesSource.length === 0) {
       try {
+        console.log("📡 Fetching categories from API (fallback)")
+
         const res = await apiConnector("GET", categories.CATEGORIES_API)
-        const category_id = res?.data?.data?.filter(
-          (ct) => ct.name.split(" ").join("-").toLowerCase() === catalogName
-        )[0]._id
-        setCategoryId(category_id)
+        categoriesSource = res?.data?.data || []
+
+        // OPTIONAL but recommended:
+        dispatch(setCategories(categoriesSource))
       } catch (error) {
-        console.log("Could not fetch Categories.", error)
+        console.error("Failed to fetch categories", error)
+        return
       }
-    })()
-  }, [catalogName])
+    } else {
+      console.log("✅ Using cached categories from Redux")
+    }
+
+    // Find matching category
+    const matchedCategory = categoriesSource.find(
+      (ct) =>
+        ct.name
+          .split(" ")
+          .join("-")
+          .toLowerCase() === catalogName
+    )
+
+    if (matchedCategory) {
+      setCategoryId(matchedCategory._id)
+    }
+  }
+
+  resolveCategory()
+}, [catalogName, categoriesList, dispatch])
+
+
+
   useEffect(() => {
     if (categoryId) {
       ; (async () => {

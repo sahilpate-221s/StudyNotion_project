@@ -1,4 +1,63 @@
-import React, { useEffect, useState } from "react";
+// import React, { useEffect, useState } from "react";
+// import ReactStars from "react-rating-stars-component";
+// import { Swiper, SwiperSlide } from "swiper/react";
+// import "swiper/css";
+// import "swiper/css/free-mode";
+// import "swiper/css/pagination";
+// import "../../App.css";
+// import { FaStar } from "react-icons/fa";
+// import { Autoplay, FreeMode, Pagination } from "swiper";
+// import { apiConnector } from "../../Service/apiConnector";
+// import { ratingsEndpoints } from "../../Service/apis";
+
+// function ReviewSlider() {
+//  const reviews = useSelector((state) => state.review.reviews);
+// const dispatch = useDispatch();
+
+//   const truncateWords = 15;
+
+//   // useEffect(() => {
+//   //   const fetchReviews = async () => {
+//   //     try {
+//   //       const { data } = await apiConnector("GET", ratingsEndpoints.REVIEWS_DETAILS_API);
+//   //       if (data?.success) {
+//   //         setReviews(data?.data);
+//   //       }
+//   //     } catch (error) {
+//   //       console.error("Error fetching reviews: ", error);
+//   //     }
+//   //   };
+
+//   //   fetchReviews();
+//   // }, []);
+
+//   useEffect(() => {
+//   if (reviews.length === 0) {
+//     console.log("📡 Fetching reviews from API");
+
+//     const fetchReviews = async () => {
+//       try {
+//         const { data } = await apiConnector(
+//           "GET",
+//           ratingsEndpoints.REVIEWS_DETAILS_API
+//         );
+
+//         if (data?.success) {
+//           dispatch(setReviews(data.data));
+//         }
+//       } catch (error) {
+//         console.error("Error fetching reviews:", error);
+//       }
+//     };
+
+//     fetchReviews();
+//   } else {
+//     console.log("✅ Using cached reviews from Redux");
+//   }
+// }, [reviews.length, dispatch]);
+
+
+import React, { useEffect } from "react";
 import ReactStars from "react-rating-stars-component";
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
@@ -7,27 +66,50 @@ import "swiper/css/pagination";
 import "../../App.css";
 import { FaStar } from "react-icons/fa";
 import { Autoplay, FreeMode, Pagination } from "swiper";
+import { useDispatch, useSelector } from "react-redux";
+
 import { apiConnector } from "../../Service/apiConnector";
 import { ratingsEndpoints } from "../../Service/apis";
+import { setReviews } from "../../Slice/reviewSlice";
 
 function ReviewSlider() {
-  const [reviews, setReviews] = useState([]);
+  const dispatch = useDispatch();
+
+  // ✅ SAFE REDUX SELECTOR
+  const reviews = useSelector((state) => state.review.reviews) || [];
+
   const truncateWords = 15;
 
+  // ✅ FETCH ONLY IF NOT IN REDUX
   useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        const { data } = await apiConnector("GET", ratingsEndpoints.REVIEWS_DETAILS_API);
-        if (data?.success) {
-          setReviews(data?.data);
-        }
-      } catch (error) {
-        console.error("Error fetching reviews: ", error);
-      }
-    };
+    if (reviews.length === 0) {
+      // console.log("📡 Fetching reviews from API");
 
-    fetchReviews();
-  }, []);
+      const fetchReviews = async () => {
+        try {
+          const { data } = await apiConnector(
+            "GET",
+            ratingsEndpoints.REVIEWS_DETAILS_API
+          );
+
+          if (data?.success) {
+            dispatch(setReviews(data.data));
+          }
+        } catch (error) {
+          console.error("❌ Error fetching reviews:", error);
+        }
+      };
+
+      fetchReviews();
+    } else {
+      // console.log("✅ Using cached reviews from Redux");
+    }
+  }, [reviews, dispatch]);
+
+  // ✅ PREVENT SWIPER CRASH
+  if (reviews.length === 0) {
+    return null;
+  }
 
   return (
     <div className="text-white">

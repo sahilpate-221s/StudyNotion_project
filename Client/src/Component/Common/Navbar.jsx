@@ -19,6 +19,7 @@ import { GiHamburgerMenu } from "react-icons/gi";
 import { SlArrowDown, SlArrowUp } from "react-icons/sl";
 import { VscDashboard, VscSignIn, VscSignOut } from "react-icons/vsc";
 import { useDispatch, useSelector } from "react-redux";
+import { setCategories } from "../../Slice/categorySlice";
 import { Link, matchPath, useLocation, useNavigate } from "react-router-dom";
 
 function Navbar() {
@@ -31,21 +32,50 @@ function Navbar() {
   const [loading2, setLoading2] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
-  const [subLinks, setSubLinks] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const categoriesList = useSelector((state) => state.category.categories);
+
+
+  // useEffect(() => {
+  //   (async () => {
+  //     setLoading(true);
+  //     try {
+  //       const res = await apiConnector("GET", categories.CATEGORIES_API);
+  //       setSubLinks(res.data.data);
+  //     } catch (error) {
+  //       console.log("Could not fetch Categories.", error);
+  //     }
+  //     setLoading(false);
+  //   })();
+  // }, []);
+  
+
   useEffect(() => {
-    (async () => {
+  if (!categoriesList.length) {
+    // console.log("📡 Fetching categories from API");
+
+    const fetchCategories = async () => {
       setLoading(true);
       try {
         const res = await apiConnector("GET", categories.CATEGORIES_API);
-        setSubLinks(res.data.data);
+        if (res?.data?.data) {
+          dispatch(setCategories(res.data.data));
+        }
       } catch (error) {
-        console.log("Could not fetch Categories.", error);
+        console.log("Error fetching categories", error);
       }
       setLoading(false);
-    })();
-  }, []);
+    };
+
+    fetchCategories();
+  } else {
+    // console.log("✅ Using cached categories from Redux");
+  }
+}, [categoriesList.length, dispatch]);
+
+
+  
   const matchRoute = (route) => {
     return matchPath({ path: route }, location.pathname);
   };
@@ -79,11 +109,11 @@ function Navbar() {
                       <BsChevronDown />
                       <div className="invisible absolute left-[50%] top-[50%] z-[1000] flex w-[200px] translate-x-[-50%] translate-y-[3em] flex-col rounded-lg bg-richblack-5 p-4 text-richblack-900 opacity-0 transition-all duration-150 group-hover:visible group-hover:translate-y-[1.65em] group-hover:opacity-100 lg:w-[300px]">
                         <div className="absolute left-[50%] top-0 -z-10 h-6 w-6 translate-x-[80%] translate-y-[-40%] rotate-45 select-none rounded bg-richblack-5"></div>
-                        {loading || !subLinks ? (
+                        {loading || !categoriesList ? (
                           <p className="text-center">Loading...</p>
-                        ) : subLinks.length ? (
+                        ) : categoriesList.length ? (
                           <>
-                            {subLinks
+                            {categoriesList
                               ?.filter(
                                 (subLink) => subLink?.courses?.length > 0
                               )
@@ -176,7 +206,7 @@ function Navbar() {
                     Log In
                   </div>
                 </Link>
-              )}is 
+              )}
 
               {token === null && (
                 <Link to={"/signup"} onClick={() => setIsMenuModalOpen(false)}>
@@ -199,7 +229,7 @@ function Navbar() {
                 </Link>
               )}
 
-              {token !== null && user && user?.role === "Student" && (
+              {token !== null && user && user?.accountType !== ACCOUNT_TYPE.INSTRUCTOR && (
                 <Link
                   to={"/dashboard/cart"}
                   onClick={() => setIsMenuModalOpen(false)}
@@ -262,9 +292,9 @@ function Navbar() {
                   </summary>
 
                   <div className="px-4 text-richblack-100 ">
-                    {subLinks && subLinks.length ? (
+                    {categoriesList && categoriesList.length ? (
                       <div className="flex flex-col capitalize">
-                        {subLinks.map((subLink, index) => (
+                        {categoriesList.map((subLink, index) => (
                           <Link
                             to={`/catalog/${subLink.name
                               .split(" ")

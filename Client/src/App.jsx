@@ -1,50 +1,55 @@
-import { useEffect } from "react"
-import "./App.css"
-import { useDispatch, useSelector } from "react-redux"
-import { Route, Routes, useNavigate } from "react-router-dom"
-
-
-import Navbar from "./Component/Common/Navbar"
-import OpenRoute from "./Component/Core/Auth/OpenRoute"
-import PrivateRoute from "./Component/Core/Auth/PrivateRoute"
-import AddCourse from "./Component/Core/Dashboard/AddCourse"
-import Cart from "./Component/Core/Dashboard/Cart"
-import EditCourse from "./Component/Core/Dashboard/EditCourse"
-import EnrolledCourses from "./Component/Core/Dashboard/EnrolledCourses"
-import Instructor from "./Component/Core/Dashboard/Instructor"
-import MyCourses from "./Component/Core/Dashboard/MyCourses"
-import MyProfile from "./Component/Core/Dashboard/MyProfile"
-import Settings from "./Component/Core/Dashboard/Settings"
-import VideoDetails from "./Component/Core/ViewCourse/VideoDetails"
-import About from "./pages/About"
-import Catalog from "./pages/Catalog"
-import Contact from "./pages/Contact"
-import CourseDetails from "./pages/CourseDetails"
-import Dashboard from "./pages/Dashboard"
-import Error from "./pages/Error"
-import ForgotPassword from "./pages/ForgotPassword"
-
-import Home from "./pages/Home"
-import Login from "./pages/Login"
-import Signup from "./pages/Signup"
-import UpdatePassword from "./pages/UpdatePassword"
-import VerifyEmail from "./pages/VerifyEmail"
-import ViewCourse from "./pages/ViewCourse"
-import { getUserDetails } from "./Service/Operation/profileAPI"
-import { ACCOUNT_TYPE } from "./Util/constants"
+import { useEffect } from "react";
+import "./App.css";
+import Navbar from "./Component/Common/Navbar";
+import OpenRoute from "./Component/Core/Auth/OpenRoute";
+import PrivateRoute from "./Component/Core/Auth/PrivateRoute";
+import AddCourse from "./Component/Core/Dashboard/AddCourse";
+import Cart from "./Component/Core/Dashboard/Cart";
+import EditCourse from "./Component/Core/Dashboard/EditCourse";
+import EnrolledCourses from "./Component/Core/Dashboard/EnrolledCourses";
+import Instructor from "./Component/Core/Dashboard/Instructor";
+import MyCourses from "./Component/Core/Dashboard/MyCourses";
+import MyProfile from "./Component/Core/Dashboard/MyProfile";
+import Settings from "./Component/Core/Dashboard/Settings";
+import VideoDetails from "./Component/Core/ViewCourse/VideoDetails";
+import { getUserDetails } from "./Service/Operation/profileAPI";
+import { ACCOUNT_TYPE } from "./Util/constants";
+import About from "./pages/About";
+import Catalog from "./pages/Catalog";
+import Contact from "./pages/Contact";
+import CourseDetails from "./pages/CourseDetails";
+import Dashboard from "./pages/Dashboard";
+import Error from "./pages/Error";
+import ForgotPassword from "./pages/ForgotPassword";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import UpdatePassword from "./pages/UpdatePassword";
+import VerifyEmail from "./pages/VerifyEmail";
+import ViewCourse from "./pages/ViewCourse";
+import { useDispatch, useSelector } from "react-redux";
+import { Route, Routes, useNavigate } from "react-router-dom";
 
 function App() {
-  const dispatch = useDispatch()
-  const navigate = useNavigate()
-  const { user } = useSelector((state) => state.profile)
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { user } = useSelector((state) => state.profile);
+
+  // useEffect(() => {
+  //   if (localStorage.getItem("token")) {
+  //     const token = JSON.parse(localStorage.getItem("token"))
+  //     dispatch(getUserDetails(token, navigate))
+  //   }
+
+  // }, [dispatch, navigate])
 
   useEffect(() => {
-    if (localStorage.getItem("token")) {
-      const token = JSON.parse(localStorage.getItem("token"))
-      dispatch(getUserDetails(token, navigate))
-    }
+    const token = localStorage.getItem("token");
 
-  }, [dispatch, navigate])
+    if (token && !user) {
+      dispatch(getUserDetails(JSON.parse(token), navigate));
+    }
+  }, [dispatch, navigate, user]);
 
   return (
     <div className="flex min-h-screen w-screen flex-col bg-richblack-900 font-inter">
@@ -148,7 +153,7 @@ function App() {
         <Route path="*" element={<Error />} />
       </Routes>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

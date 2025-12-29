@@ -5,6 +5,7 @@ const initialState = {
   course: null,
   editCourse: false,
   paymentLoading: false,
+  courseDetails: {}, // cache by courseId
 }
 
 const courseSlice = createSlice({
@@ -28,6 +29,11 @@ const courseSlice = createSlice({
       state.course = null
       state.editCourse = false
     },
+    // ✅ NEW
+    setCourseDetails: (state, action) => {
+      const { courseId, data } = action.payload
+      state.courseDetails[courseId] = data
+    },
   },
 })
 
@@ -37,6 +43,7 @@ export const {
   setEditCourse,
   setPaymentLoading,
   resetCourseState,
+   setCourseDetails,
 } = courseSlice.actions
 
 export default courseSlice.reducer
