@@ -14,6 +14,9 @@ The project is built with a strong focus on **backend architecture, performance 
 - Email: `h@gmail.com`
 - Password: `123456`
 
+- Email: `s.sahil007patel@gmail.com`
+- Password: `123456`
+
 ### Instructor
 - Email: `KaranRai@gmail.com`
 - Password: `123456`
