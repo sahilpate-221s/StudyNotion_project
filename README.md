@@ -1,10 +1,10 @@
-# StudyNotion – Scalable Ed-Tech Platform (MERN)
+# StudyNotion – Scalable Ed-Tech Platform (MERN + Redis)
 
 🔗 **Live Demo:** https://studynotionapp21.netlify.app  
 🔗 **GitHub Repository:** https://github.com/sahilpate-221s/StudyNotion_project  
 
-StudyNotion is a full-stack ed-tech platform that enables students to enroll in courses and instructors to create and manage content.  
-The project is built with a strong focus on **backend architecture, performance optimization, and real-world system behavior** rather than just UI features.
+StudyNotion is a full-stack ed-tech platform where students can enroll in courses and instructors can create and manage learning content.  
+The project focuses on **backend scalability, performance optimization, and real-world system design**, not just UI.
 
 ---
 
@@ -30,84 +30,120 @@ The project is built with a strong focus on **backend architecture, performance 
 ## 🧠 Core Features
 
 ### Students
-- Browse and enroll in courses
-- Secure checkout using Razorpay
-- Track course progress
-- Rate and review courses
+- Browse & enroll in courses
+- Secure Razorpay checkout
+- Track enrolled courses & progress
+- Submit ratings and reviews
 
 ### Instructors
-- Create and manage courses
+- Create, edit, and delete courses
 - Upload media using Cloudinary
-- Track enrollments and revenue
-- View basic engagement insights
+- View enrolled students and revenue
+- Manage course content & structure
 
 ---
 
 ## 🏗️ System Architecture
 
-StudyNotion follows a **client–server architecture** with clear separation of concerns and stateless backend services.
-
-![Architecture Diagram](https://res.cloudinary.com/dvpulu3cc/image/upload/v1699036870/Screenshot_2023-11-04_000952_argzj8.jpg)
+StudyNotion follows a **clean client–server architecture** with stateless APIs and optimized data access.
 
 ### Frontend
-- React.js with Redux for state management
-- Tailwind CSS for responsive UI
-- Deployed on Netlify
+- React + Redux Toolkit
+- Tailwind CSS
+- Netlify deployment
 
 ### Backend
-- Node.js + Express.js
+- Node.js + Express
 - MongoDB with Mongoose
-- JWT-based authentication
-- Redis for caching frequently accessed data
-- Deployed on cloud hosting (Node.js compatible)
+- Redis for caching
+- JWT authentication
+- Cloudinary for media
+- Razorpay for payments
 
 ---
 
-## ⚙️ Key Engineering Decisions
+## 🚀 Performance & Scalability Optimizations
 
-- **Stateless Authentication (JWT)**  
-  JWT was chosen to keep authentication stateless, allowing horizontal scalability of backend services.
+### 🔥 Redis Caching Layer
+Implemented Redis to reduce repeated database queries and improve API performance.
 
-- **Cloudinary for Media Storage**  
-  Media uploads are offloaded to Cloudinary to reduce backend load and avoid handling large files directly.
+Cached APIs include:
+- Course listings  
+- Categories  
+- Course details  
+- Reviews  
+- User profile data  
+- Instructor dashboards  
 
-- **Redis Caching for Public APIs**  
-  Public endpoints such as course lists and categories are cached to minimize repeated database reads and improve response time.
+Each cache entry:
+- Uses **TTL-based expiration**
+- Supports **pattern-based invalidation**
+- Automatically refreshes on updates (create/edit/delete)
 
-- **Aggregated API Design**  
-  Introduced aggregated endpoints for homepage data to reduce multiple frontend API calls and lower initial load latency.
-
----
-
-## 🚀 Performance Optimizations
-
-- Cached frequently accessed public data (courses, categories, reviews)
-- Reduced API chaining by aggregating homepage data into a single endpoint
-- Implemented cursor-based pagination to avoid performance issues caused by large offset queries
-- Achieved approximately **35–40% improvement in API response time**, measured using Postman and browser network analysis
+✅ Result: **~35–40% faster response times** and significantly reduced MongoDB load.
 
 ---
 
-## ⏱️ Cold Start Consideration
+## ⚙️ Backend Architecture Highlights
 
-The backend is deployed on a free-tier cloud service and may experience **cold starts** after periods of inactivity.  
-The first request can take longer due to server spin-up, while subsequent requests perform normally.
+- Modular folder structure (controllers, services, cache, utils)
+- Centralized reusable `CacheService`
+- Graceful fallback if Redis is unavailable
+- Aggregated APIs to reduce frontend API chaining
+- JWT-based stateless authentication
+- Role-based access control (Student / Instructor)
+- Optimized MongoDB queries with selective population
 
-A lightweight **health-check endpoint** is used to monitor backend availability and warm up the service when required.
+---
+
+## 🧠 Caching Strategy Overview
+
+| Data Type | Cache Key Pattern | TTL |
+|----------|------------------|-----|
+| Categories | `category:all` | 1 hour |
+| Course list | `course:all` | 15 min |
+| Course details | `course:details:<id>` | 30 min |
+| Reviews | `review:all` | 30 min |
+| User profile | `user:profile:<id>` | 10 min |
+| Instructor dashboard | `instructor:dashboard:<id>` | 10 min |
+| Enrolled courses | `user:enrolled:<id>` | 5 min |
+
+Cache is invalidated automatically on:
+- Course create / update / delete  
+- Category updates  
+- Enrollment changes  
+- Profile updates  
+- Review creation  
+
+---
+
+## 🐳 Docker & Deployment
+
+- Backend and Redis containerized using Docker
+- Redis connected via environment-based configuration
+- Ensures consistent development and production behavior
+- Deployed on cloud infrastructure with Redis support
+
+---
+
+## ⏱️ Cold Start Note
+
+Since the backend runs on a free-tier hosting service, the first request after inactivity may take longer due to cold start.  
+Subsequent requests are fast due to Redis caching and warm services.
 
 ---
 
 ## 📸 Application Preview
 
-### Student Dashboard / Course View
+### Student Dashboard
 ![Student Dashboard](https://res.cloudinary.com/dvpulu3cc/image/upload/v1702489710/Screenshot_2023-12-13_231558_dwyhv3.png)
 
-### Payment & Enrollment Flow
+### Payment Flow
 ![Payment Success](https://res.cloudinary.com/dvpulu3cc/image/upload/v1702489800/payment_success_example.png)
 
 ---
 
-## 📡 API Overview (Selected)
+## 📡 Key API Endpoints
 
 ### Authentication
 - `POST /api/v1/auth/signup`
@@ -126,43 +162,44 @@ A lightweight **health-check endpoint** is used to monitor backend availability 
 
 ## 🗄️ Database Design
 
-The database schema is designed for efficient reads and clear relationships:
-
-- User (Student / Instructor)
+Collections:
+- User
+- Profile
 - Course
 - Category
-- Section & SubSection
+- Section
+- SubSection
 - Rating & Review
 - Course Progress
 
-This structure supports scalable content organization and fast access to learning data.
+Designed for:
+- Fast reads
+- Minimal duplication
+- Scalable relationships
+- Efficient aggregation
 
 ---
 
 ## 🛠️ Tech Stack
 
-**Frontend:** React, Redux, Tailwind CSS  
+**Frontend:** React, Redux Toolkit, Tailwind CSS  
 **Backend:** Node.js, Express.js  
 **Database:** MongoDB  
 **Caching:** Redis  
-**Authentication:** JWT, Bcrypt  
-**Media Storage:** Cloudinary  
+**Auth:** JWT  
+**Media:** Cloudinary  
 **Payments:** Razorpay  
+**Containerization:** Docker  
 
 ---
 
-## 🚀 Deployment
+## 🚀 Future Improvements
 
-- **Frontend:** Netlify
-- **Backend:** Cloud hosting (Node.js compatible environment)
-
----
-
-## 📌 Future Improvements
-
-- Admin moderation and reporting dashboard
+- Background job queues (BullMQ)
+- Admin moderation dashboard
 - Advanced analytics for instructors
-- Background jobs for async tasks (emails, cleanup, etc.)
+- Redis-based rate limiting
+- WebSocket-based notifications
 
 ---
 
@@ -173,4 +210,4 @@ This structure supports scalable content organization and fast access to learnin
 
 ---
 
-StudyNotion emphasizes **engineering fundamentals, performance awareness, and real-world backend considerations**, making it suitable for technical interviews and scalable application design.
+StudyNotion focuses on **real-world backend engineering, performance optimization, and scalable architecture**, making it suitable for production-grade learning platforms.
